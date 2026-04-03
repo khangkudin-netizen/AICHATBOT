@@ -1,16 +1,19 @@
 import express from "express";
 import bodyParser from "body-parser";
 import axios from "axios";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 const app = express();
 app.use(bodyParser.json());
 
-// 🔑 CONFIG
-const PAGE_ACCESS_TOKEN = "PASTE_FACEBOOK_TOKEN_HERE";
-const VERIFY_TOKEN = "123456";
-const OPENAI_API_KEY = "PASTE_OPENAI_KEY_HERE";
+// 🔐 LẤY BIẾN MÔI TRƯỜNG
+const PAGE_ACCESS_TOKEN = process.env.PAGE_ACCESS_TOKEN;
+const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
-// 🏪 DATA SHOP (SỬA THEO SHOP BẠN)
+// 🏪 DATA SHOP
 const shopData = `
 Shop cho thuê váy:
 
@@ -19,27 +22,18 @@ Shop cho thuê váy:
 - Đặt cọc: 50%
 - Size: S, M, L
 - Có giao hàng toàn quốc
-
-Sản phẩm:
-1. Váy body đỏ: sexy, đi tiệc
-2. Váy maxi trắng: đi biển
-3. Váy đen sang chảnh: dự tiệc tối
 `;
 
-// 🧠 AI
+// 🧠 AI PROMPT
 const systemPrompt = `
-Bạn là nhân viên chăm sóc khách hàng cho shop cho thuê đồ.
+Bạn là nhân viên chăm sóc khách hàng.
 
 ${shopData}
 
-Quy tắc:
-- Thân thiện, tự nhiên
+- Trả lời thân thiện
 - Ngắn gọn
-- Có emoji nhẹ
-- Luôn gợi ý thêm
-- Nếu thiếu info → hỏi lại
-
-Mục tiêu: chốt đơn
+- Gợi ý thêm sản phẩm
+- Mục tiêu: chốt đơn
 `;
 
 // VERIFY
@@ -47,11 +41,11 @@ app.get("/webhook", (req, res) => {
   if (req.query["hub.verify_token"] === VERIFY_TOKEN) {
     res.send(req.query["hub.challenge"]);
   } else {
-    res.send("Error");
+    res.send("Error verify token");
   }
 });
 
-// RECEIVE MESSAGE
+// RECEIVE
 app.post("/webhook", async (req, res) => {
   try {
     const entry = req.body.entry?.[0];
@@ -68,12 +62,12 @@ app.post("/webhook", async (req, res) => {
 
     res.sendStatus(200);
   } catch (err) {
-    console.log(err);
+    console.error("ERROR:", err.message);
     res.sendStatus(500);
   }
 });
 
-// AI FUNCTION
+// AI
 async function askAI(message) {
   const res = await axios.post(
     "https://api.openai.com/v1/chat/completions",
@@ -94,7 +88,7 @@ async function askAI(message) {
   return res.data.choices[0].message.content;
 }
 
-// SEND MESSAGE
+// SEND
 async function sendMessage(sender, text) {
   await axios.post(
     `https://graph.facebook.com/v18.0/me/messages?access_token=${PAGE_ACCESS_TOKEN}`,
@@ -106,4 +100,5 @@ async function sendMessage(sender, text) {
 }
 
 // RUN
-app.listen(3000, () => console.log("Running on port 3000"));
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log("Server running..."));
